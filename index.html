@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Sentinels - Project Victory Roadmap</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- 
+        Chosen Palette: Cosmic Light (Light gray/white background, dark slate text, and accents of ISRO-inspired blue and orange)
+        Application Structure Plan: A single-page dashboard application with a fixed sidebar for navigation between an 'Overview', detailed 'Phase' sections, and a 'Gemini Assistant' section. The Overview provides a project summary and a dynamic progress chart reflecting granular task completion. Each Phase section uses interactive accordions for tasks. The 'Member's Work' view (triggered by filter) displays tasks by phase. Task completion is now percentage-based, persisting state and updating charts. New LLM features include task elaboration with completion context, and a multi-user chat interface within the Gemini Assistant. The multi-user chat allows individual chat histories, with the Team Leader (Pranava) having access to view all team members' chats. This structure prioritizes granular tracking, personalized AI support, and team oversight.
+        Visualization & Content Choices: Report Info -> Project Plan; Goal -> Interactive planning, progress tracking, AI assistance; Viz -> Interactive accordions, Chart.js for progress, dynamic text; Interaction -> Expand/collapse tasks, filter by member, percentage completion input, AI-driven task elaboration, multi-user chat, team leader chat viewing; Justification -> Percentage completion offers detailed progress. Multi-user chat keeps queries separate but accessible for oversight. AI provides context-aware guidance. NO SVG/Mermaid confirmed.
+        CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+    -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 250px;
+            max-height: 300px;
+        }
+        .sidebar-item.active {
+            background-color: #e0f2fe; /* sky-100 */
+            color: #0c4a6e; /* sky-900 */
+            font-weight: 600;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .task-item {
+            transition: all 0.3s ease;
+            border-left-width: 4px;
+        }
+        .task-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 8px; /* Space between header and assignee/completion */
+        }
+        .task-text-content {
+            flex-grow: 1;
+            cursor: pointer; /* Indicate clickable for completion */
+        }
+        .task-completion-input {
+            width: 70px; /* Adjust width as needed */
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e1; /* slate-300 */
+            text-align: center;
+            font-size: 0.875rem; /* text-sm */
+        }
+        .task-expand-btn {
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+        .task-expansion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            background-color: #f5f8fa; /* lighter shade for expanded content */
+            border-radius: 4px;
+            padding: 0 8px; /* Initial padding to 0 top/bottom, 8px left/right */
+            white-space: pre-wrap; /* Ensure line breaks are respected */
+        }
+        .task-expansion-content.open {
+            max-height: 500px; /* Sufficiently large to show content, will scroll if more */
+            overflow-y: auto; /* Allow scrolling if content exceeds max-height */
+            padding-top: 8px; /* Add top padding when open */
+            padding-bottom: 8px; /* Add bottom padding when open */
+            margin-top: 8px; /* Space above expanded content */
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-white shadow-md flex flex-col p-4 transition-transform transform -translate-x-full md:translate-x-0">
+            <div class="flex items-center mb-8">
+                <div class="p-2 bg-gradient-to-br from-blue-500 to-orange-500 rounded-lg">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+                </div>
+                <h1 class="ml-3 text-xl font-bold text-slate-800">Solar Sentinels</h1>
+            </div>
+            <nav id="nav-menu" class="flex flex-col space-y-2">
+                <a href="#overview" class="sidebar-item flex items-center px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    Overview
+                </a>
+                <a href="#phase1" class="sidebar-item flex items-center px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
+                     <span class="mr-3 font-bold text-blue-600">1</span>
+                    Initiation & Data
+                </a>
+                <a href="#phase2" class="sidebar-item flex items-center px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
+                     <span class="mr-3 font-bold text-blue-600">2</span>
+                    Feature & MVP Dev
+                </a>
+                <a href="#phase3" class="sidebar-item flex items-center px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
+                     <span class="mr-3 font-bold text-blue-600">3</span>
+                    Finalization
+                </a>
+                <a href="#phase4" class="sidebar-item flex items-center px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
+                     <span class="mr-3 font-bold text-blue-600">4</span>
+                    Prototype Victory
+                </a>
+                <a href="#gemini-assistant" class="sidebar-item flex items-center px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4.636 4.636l-.707.707M3 12H2m14.864-1.636l.707-.707M12 21v-1m-6.364-1.636l-.707.707M6.364 4.636L5.657 3.93M18.364 18.364l.707.707M16.909 13.909L13.273 17.545M12 12V6m2 2l-2 2"></path></svg>
+                    Gemini Assistant ✨
+                </a>
+            </nav>
+            <div class="mt-auto">
+                <div class="bg-slate-100 p-3 rounded-lg">
+                    <h3 class="font-semibold text-sm mb-2 text-slate-700">Filter by Member:</h3>
+                    <select id="member-filter" class="w-full p-2 text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <option value="All">All Members</option>
+                        <option value="Pranava">Pranava Kumar</option>
+                        <option value="Manoj">Manoj Kumar</option>
+                        <option value="Madhukavi">Madhukavi</option>
+                        <option value="Gayathri">Gayathri</option>
+                    </select>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6 md:p-10 overflow-y-auto">
+            <button id="menu-toggle" class="md:hidden mb-4 p-2 rounded-md bg-white shadow">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+            <div id="content-area">
+                <!-- Content will be injected here by JavaScript -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Global variables for DOM elements - assigned in init()
+        let contentArea;
+        let navMenu;
+        let memberFilter;
+        let sidebar;
+        let menuToggle;
+        let currentAIChatUser = 'Pranava'; // Default AI chat user
+
+        // Store task completion status in localStorage
+        function getCompletionStatus() {
+            try {
+                const status = localStorage.getItem('taskCompletionStatus');
+                return status ? JSON.parse(status) : {};
+            } catch (e) {
+                console.error("Error reading from localStorage:", e);
+                return {};
+            }
+        }
+
+        function setCompletionStatus(taskId, completedPercentage) {
+            const status = getCompletionStatus();
+            status[taskId] = completedPercentage;
+            try {
+                localStorage.setItem('taskCompletionStatus', JSON.stringify(status));
+            } catch (e) {
+                console.error("Error writing to localStorage:", e);
+            }
+        }
+
+        // Store chat history in localStorage
+        function getChatHistory(userTag) {
+            try {
+                const history = localStorage.getItem(`chatHistory_${userTag}`);
+                return history ? JSON.parse(history) : [];
+            } catch (e) {
+                console.error(`Error reading chat history for ${userTag} from localStorage:`, e);
+                return [];
+            }
+        }
+
+        function setChatHistory(userTag, history) {
+            try {
+                localStorage.setItem(`chatHistory_${userTag}`, JSON.stringify(history));
+            } catch (e) {
+                console.error(`Error writing chat history for ${userTag} to localStorage:`, e);
+            }
+        }
+
+        const projectData = {
+            title: "Victory Roadmap: Team Leader's Guidance for Bharatiya Antariksh Hackathon 2025",
+            teamName: "Solar Sentinels",
+            problemStatement: "Identifying Halo CME Events Based on Particle Data from SWIS-ASPEX Payload onboard Aditya-L1",
+            team: [
+                { name: "Pranava Kumar", tag: "Pranava", role: "Team Leader & AI/ML Lead", dept: "Information Technology, Final Year", responsibilities: "Primary Coder, Project Manager, Integrator, Vision Holder, Motivator" },
+                { name: "Manoj Kumar", tag: "Manoj", role: "Data Interpretation & Prototype Layout", dept: "Mechanical Engineering, Second Year", responsibilities: "Data Insights, Physical Modeling Input, Calculation Verification, Presentation Layout Architect, Practicality Checker" },
+                { name: "Madhukavi", tag: "Madhukavi", role: "Space Weather Research & Feature Concept Lead", dept: "Biotechnology, Second Year", responsibilities: "Deep Domain Research, Feature Hypothesis Generation, Statistical Threshold Logic, Scientific Validator" },
+                { name: "Gayathri", tag: "Gayathri", role: "Presentation & Documentation Lead", dept: "Biotechnology, Second Year", responsibilities: "Core Content Author, Narrative Development, Q&A Preparation, Research Coordinator, Communication Champion" },
+            ],
+            phases: [
+                {
+                    id: "phase1",
+                    title: "Phase 1: Project Initiation & Data Readiness",
+                    duration: "Days 1-2",
+                    objective: "All team members achieve a foundational understanding of the problem and data. Pranava sets up the core coding environment and initiates essential data downloads and initial processing.",
+                    deliverables: [
+                        "Shared understanding of problem and roles",
+                        "Fully configured development environment",
+                        "Git repository initialized",
+                        "SWIS & CACTUS data downloaded",
+                        "Robust data ingestion scripts",
+                        "Clean, time-synchronized Pandas DataFrame",
+                        "Initial exploratory plots of raw data",
+                        "Documented visual observations of CME signatures"
+                    ],
+                    steps: [
+                        { 
+                            title: "Project Kick-off & Accelerated Problem Understanding", 
+                            tasks: [
+                                { id: "p1_s1_t1", text: "Lead a dynamic kick-off meeting to explain the project vision and goals.", assignee: "Pranava" },
+                                { id: "p1_s1_t2", text: "Distribute and review the hackathon evaluation criteria and PPTX template.", assignee: "Pranava" },
+                                { id: "p1_s1_t3", text: "Establish a mandatory daily 'Scrum' stand-up meeting.", assignee: "All" }
+                            ] 
+                        },
+                        { 
+                            title: "Essential Technical Environment Setup", 
+                            tasks: [
+                                { id: "p1_s2_t1", text: "Install Python, IDE (VS Code), and all necessary libraries (`pandas`, `numpy`, `plotly`, `scikit-learn`, `cdflib`).", assignee: "Pranava" },
+                                { id: "p1_s2_t2", text: "Initialize Git repository, create main/dev branches, and explain the concept to the team.", assignee: "Pranava" }
+                            ] 
+                        },
+                        { 
+                            title: "Rapid Data Acquisition & Initial Ingestion", 
+                            tasks: [
+                                { id: "p1_s3_t1", text: "Download manageable chunks of SWIS Level-2 data from ISSDC.", assignee: "Pranava" },
+                                { id: "p1_s3_t2", text: "Download Halo CME event lists from the CACTUS database.", assignee: "Pranava" },
+                                { id: "p1_s3_t3", text: "Create `.gitignore` for the `data/raw` directory.", assignee: "Pranava" },
+                                { id: "p1_s3_t4", text: "Develop Python scripts to read CDF and CACTUS data into Pandas DataFrames.", assignee: "Pranava" },
+                                { id: "p1_s3_t5", text: "Implement robust time parsing and synchronization (UTC).", assignee: "Pranava" },
+                                { id: "p1_s3_t6", text: "Create a binary `CME_Flag` column in the master DataFrame for ground truth.", assignee: "Pranava" }
+                            ] 
+                        },
+                        { 
+                            title: "Targeted Domain Research & Data Comprehension", 
+                            tasks: [
+                                { id: "p1_s4_t1", text: "Become the team's expert on in-situ CME signatures (density pile-up, velocity increase, alpha-to-proton ratio).", assignee: "Madhukavi" },
+                                { id: "p1_s4_t2", text: "Research SWIS-ASPEX payload specifications and understand the physical meaning of data parameters.", assignee: "Manoj" },
+                                { id: "p1_s4_t3", text: "Research Aditya-L1's strategic L1 position and draft the project's narrative.", assignee: "Gayathri" }
+                            ]
+                        },
+                        {
+                            title: "Collaborative Exploratory Data Analysis",
+                            tasks: [
+                                { id: "p1_s5_t1", text: "Generate interactive plots of raw SWIS data for known CME and non-CME periods.", assignee: "Pranava" },
+                                { id: "p1_s5_t2", text: "Lead a collaborative session to visually identify patterns and signatures in the generated plots.", assignee: "Pranava" },
+                                { id: "p1_s5_t3", text: "Actively connect visual observations to researched physical signatures.", assignee: "Madhukavi" },
+                                { id: "p1_s5_t4", text: "Focus on quantitative aspects of visual changes (magnitude, duration).", assignee: "Manoj" },
+                                { id: "p1_s5_t5", text: "Document all initial observations and insights for the presentation.", assignee: "Gayathri" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "phase2",
+                    title: "Phase 2: Feature Engineering & Core Detection System Development",
+                    duration: "Days 3-4",
+                    objective: "Transform raw data into scientifically meaningful derived features based on domain insight. Implement a robust, rule-based detection system as the project's core MVP and test a basic ML model as a stretch goal.",
+                    deliverables: [
+                        "Script for calculating derived features (Alpha-Proton Ratio, Dynamic Pressure, etc.)",
+                        "Augmented master DataFrame with engineered features",
+                        "A functional rule-based Halo CME detection algorithm (MVP)",
+                        "Quantified performance metrics (Precision, Recall, F1) for the MVP",
+                        "Initial ML model trained and evaluated (stretch goal)",
+                        "Analysis of False Positives/Negatives"
+                    ],
+                    steps: [
+                        {
+                            title: "Domain-Driven Feature Concept Formulation",
+                            tasks: [
+                                { id: "p2_s1_t1", text: "Formally propose specific derived features based on research and visual analysis.", assignee: "Madhukavi" },
+                                { id: "p2_s1_t2", text: "Define logical conditions for thresholds based on physical interpretations.", assignee: "Manoj" },
+                                { id: "p2_s1_t3", text: "Document the rationale for each selected feature.", assignee: "Gayathri" }
+                            ]
+                        },
+                        {
+                            title: "Feature Engineering & MVP Implementation",
+                            tasks: [
+                                { id: "p2_s2_t1", text: "Code Python functions to calculate all proposed derived features, especially Alpha-to-Proton Ratio and Dynamic Pressure.", assignee: "Pranava" },
+                                { id: "p2_s2_t2", text: "Collaboratively define and document the explicit rule-based thresholds for the MVP.", assignee: "All" },
+                                { id: "p2_s2_t3", text: "Implement the rule-based detection logic in Python.", assignee: "Pranava" }
+                            ]
+                        },
+                        {
+                            title: "MVP Validation & Performance Interpretation",
+                            tasks: [
+                                { id: "p2_s3_t1", text: "Develop a Python script to validate the rule-based MVP against ground truth.", assignee: "Pranava" },
+                                { id: "p2_s3_t2", text: "Calculate Precision, Recall, F1-Score, and generate a Confusion Matrix.", assignee: "Pranava" },
+                                { id: "p2_s3_t3", text: "Present validation metrics to the team for interpretation.", assignee: "Pranava" },
+                                { id: "p2_s3_t4", text: "Analyze False Positive/Negative cases to understand model weaknesses and propose refinements.", assignee: "Madhukavi, Manoj" }
+                            ]
+                        },
+                        {
+                            title: "Introduction to AI (Stretch Goal)",
+                            tasks: [
+                                { id: "p2_s4_t1", text: "Prepare data for scikit-learn, addressing class imbalance.", assignee: "Pranava" },
+                                { id: "p2_s4_t2", text: "Implement and train a simple Decision Tree or Random Forest classifier.", assignee: "Pranava" },
+                                { id: "p2_s4_t3", text: "Evaluate the ML model's performance and compare it to the rule-based MVP.", assignee: "Pranava" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "phase3",
+                    title: "Phase 3: Ideation Document & Presentation Finalization",
+                    duration: "Days 5-6",
+                    objective: "Fully populate the PPTX template with impactful, scientifically accurate, and visually compelling content. Finalize all materials, practice delivery, and ensure successful submission.",
+                    deliverables: [
+                        "A complete, polished PPTX submission file",
+                        "All key visuals (plots, diagrams) finalized",
+                        "A clear, compelling presentation narrative",
+                        "Well-commented, clean source code and README file",
+                        "Rehearsed presentation and prepared Q&A responses"
+                    ],
+                    steps: [
+                        {
+                            title: "Comprehensive Presentation Content Generation",
+                            tasks: [
+                                { id: "p3_s1_t1", text: "Lead the creation of introductory and narrative slides.", assignee: "Gayathri" },
+                                { id: "p3_s1_t2", text: "Craft the 'Opportunity' and 'USP' sections, highlighting scientific differentiators.", assignee: "Madhukavi, Gayathri" },
+                                { id: "p3_s1_t3", text: "Generate all final plots and visuals for the presentation.", assignee: "Pranava" },
+                                { id: "p3_s1_t4", text: "Create process flowcharts and architecture diagrams.", assignee: "Manoj" }
+                            ]
+                        },
+                        {
+                            title: "Narrative & Key Messaging Development",
+                            tasks: [
+                                { id: "p3_s2_t1", text: "Craft the overall story: Problem -> Solution -> Impact.", assignee: "Gayathri, Madhukavi" },
+                                { id: "p3_s2_t2", text: "Ensure the project's impact on space weather and India's capabilities is clearly articulated.", assignee: "Gayathri" }
+                            ]
+                        },
+                        {
+                            title: "Final Review, Polish & Code Cleanup",
+                            tasks: [
+                                { id: "p3_s3_t1", text: "Conduct a thorough final review of the entire PPTX for consistency and clarity.", assignee: "Manoj, Gayathri" },
+                                { id: "p3_s3_t2", text: "Clean and extensively comment all Python scripts.", assignee: "Pranava" },
+                                { id: "p3_s3_t3", text: "Create a comprehensive README.md file for the GitHub repository.", assignee: "Pranava" }
+                            ]
+                        },
+                        {
+                            title: "Rehearsal & Q&A Preparation",
+                            tasks: [
+                                { id: "p3_s4_t1", text: "Conduct multiple full-length practice runs of the presentation, adhering to time limits.", assignee: "All" },
+                                { id: "p3_s4_t2", text: "Simulate a challenging Q&A session to prepare for judges' questions.", assignee: "All" },
+                                { id: "p3_s4_t3", text: "Prepare concise answers for anticipated questions on technical implementation, scientific basis, and limitations.", assignee: "All" }
+                            ]
+                        },
+                        {
+                            title: "Final Submission",
+                            tasks: [
+                                { id: "p3_s5_t1", text: "Conduct a final review of all submission materials against the hackathon checklist.", assignee: "All" },
+                                { id: "p3_s5_t2", text: "Upload all required files to the submission portal well before the deadline.", assignee: "Pranava, Gayathri" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: "phase4",
+                    title: "Phase 4: Prototype Development & Competition Victory",
+                    duration: "Post-Ideation Round",
+                    objective: "If selected, build a fully working prototype, refine the AI/ML model, and prepare for the final competition demonstration.",
+                    deliverables: [
+                        "A fully functional prototype with a simple UI",
+                        "A refined and optimized ML model",
+                        "Comprehensive technical and user documentation",
+                        "A polished final demonstration"
+                    ],
+                    steps: [
+                        {
+                            title: "Continuous Agile Development",
+                            tasks: [
+                                { id: "p4_s1_t1", text: "Break down prototype development into 1-2 week sprints with clear goals.", assignee: "Pranava" },
+                                { id: "p4_s1_t2", text: "Continue daily stand-up meetings to track progress and blockers.", assignee: "All" }
+                            ]
+                        },
+                        {
+                            title: "Refining the AI/ML Model",
+                            tasks: [
+                                { id: "p4_s2_t1", text: "Perform hyperparameter tuning and cross-validation to improve model accuracy.", assignee: "Pranava" },
+                                { id: "p4_s2_t2", text: "Involve domain experts in interpreting model behavior and refining features.", assignee: "Madhukavi, Manoj" }
+                            ]
+                        },
+                        {
+                            title: "Prototype UI/UX Development",
+                            tasks: [
+                                { id: "p4_s3_t1", text: "Design a simple, functional UI/dashboard (e.g., using Streamlit or Flask).", assignee: "Manoj, Gayathri" },
+                                { id: "p4_s3_t2", text: "Implement the front-end to display real-time detection results and visualizations.", assignee: "Pranava" }
+                            ]
+                        },
+                        {
+                            title: "Robustness, Testing & Documentation",
+                            tasks: [
+                                { id: "p4_s4_t1", text: "Implement extensive error handling and logging.", assignee: "Pranava" },
+                                { id: "p4_s4_t2", text: "Conduct rigorous testing with diverse datasets.", assignee: "All" },
+                                { id: "p4_s4_t3", text: "Create detailed technical and user documentation for the prototype.", assignee: "Gayathri" }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        let myChart; // To hold the Chart.js instance for the overview progress chart
+
+        // Initialize task completion status from localStorage
+        projectData.phases.forEach(phase => {
+            phase.steps.forEach(step => {
+                step.tasks.forEach(task => {
+                    const status = getCompletionStatus();
+                    task.completed = status[task.id] !== undefined ? status[task.id] : 0; // Default to 0% if not found
+                });
+            });
+        });
+
+        function calculateOverallProgress() {
+            let totalWeightedCompletion = 0;
+            let totalTasks = 0; // Each task counts as 1 "unit" for now, could be weighted by estimated hours if added
+
+            projectData.phases.forEach(phase => {
+                phase.steps.forEach(step => {
+                    step.tasks.forEach(task => {
+                        totalWeightedCompletion += task.completed; // Summing percentages
+                        totalTasks++;
+                    });
+                });
+            });
+            return totalTasks > 0 ? (totalWeightedCompletion / (totalTasks * 100)) * 100 : 0; // Normalize to 0-100%
+        }
+
+        function calculatePhaseProgress(phaseId) {
+            const phase = projectData.phases.find(p => p.id === phaseId);
+            if (!phase) return 0;
+
+            let totalWeightedCompletion = 0;
+            let totalTasks = 0;
+
+            phase.steps.forEach(step => {
+                step.tasks.forEach(task => {
+                    totalWeightedCompletion += task.completed;
+                    totalTasks++;
+                });
+            });
+            return totalTasks > 0 ? (totalWeightedCompletion / (totalTasks * 100)) * 100 : 0;
+        }
+
+        function createMemberCard(member) {
+            return `
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800">${member.name}</h3>
+                    <p class="text-sm font-semibold text-blue-600">${member.role}</p>
+                    <p class="text-xs text-slate-500 mt-1">${member.dept}</p>
+                    <p class="text-sm text-slate-600 mt-2">${member.responsibilities}</p>
+                </div>
+            `;
+        }
+
+        function renderOverview() {
+            const totalProgress = calculateOverallProgress();
+            const overviewHTML = `
+                <div id="overview" class="page-section">
+                    <h1 class="text-3xl font-bold text-slate-900 mb-2">${projectData.teamName}: Victory Roadmap</h1>
+                    <p class="text-lg text-slate-600 mb-6">${projectData.problemStatement}</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
+                        ${projectData.team.map(createMemberCard).join('')}
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                            <h3 class="font-bold text-lg mb-4">Project Progress Overview</h3>
+                            <div class="chart-container">
+                                <canvas id="progressChart"></canvas>
+                            </div>
+                            <p class="text-center mt-4 text-slate-700">Overall Completion: <span class="font-bold text-blue-600">${totalProgress.toFixed(1)}%</span></p>
+                        </div>
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                            <h3 class="font-bold text-lg mb-4">Key Principles for Victory</h3>
+                            <ul class="space-y-3">
+                                <li class="flex items-start"><span class="text-blue-500 mr-3 mt-1">&#10003;</span><div><span class="font-semibold">Clarity of Vision:</span> Everyone understands the project's 'North Star'.</div></li>
+                                <li class="flex items-start"><span class="text-blue-500 mr-3 mt-1">&#10003;</span><div><span class="font-semibold">Strategic Delegation:</span> Tasks assigned based on strengths.</div></li>
+                                <li class="flex items-start"><span class="text-blue-500 mr-3 mt-1">&#10003;</span><div><span class="font-semibold">Empowerment through Guidance:</span> Coaching to maximize team contribution.</div></li>
+                                <li class="flex items-start"><span class="text-blue-500 mr-3 mt-1">&#10003;</span><div><span class="font-semibold">Ruthless Prioritization:</span> Focus on impact over perfection.</div></li>
+                                <li class="flex items-start"><span class="text-blue-500 mr-3 mt-1">&#10003;</span><div><span class="font-semibold">Compelling Storytelling:</span> Crafting a narrative that sells the vision.</div></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+            contentArea.innerHTML = overviewHTML;
+            createProgressChart(totalProgress);
+            addListenersToTasks(); // Add listeners for task completion
+        }
+        
+        function renderPhase(phase) {
+            const phaseProgress = calculatePhaseProgress(phase.id);
+            const phaseHTML = `
+                <div id="${phase.id}" class="page-section">
+                    <h1 class="text-3xl font-bold text-slate-900 mb-2">${phase.title}</h1>
+                    <p class="text-md text-slate-500 font-medium mb-4">Duration: ${phase.duration}</p>
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mb-6">
+                        <h3 class="font-bold text-blue-800">Objective</h3>
+                        <p class="text-blue-700 mt-1">${phase.objective}</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                            <h3 class="font-bold text-lg mb-4">Key Deliverables</h3>
+                            <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                                ${phase.deliverables.map(d => `<li class="flex items-center"><span class="text-green-500 mr-3">&#10004;</span>${d}</li>`).join('')}
+                            </ul>
+                        </div>
+                         <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                            <h3 class="font-bold text-lg mb-4">Actionable Steps</h3>
+                            <p class="text-slate-600">This phase includes <span class="font-bold text-slate-800">${phase.steps.length}</span> primary steps. Expand each step below to see detailed tasks and responsibilities.</p>
+                            <p class="text-center mt-4 text-slate-700">Phase Completion: <span class="font-bold text-blue-600">${phaseProgress.toFixed(1)}%</span></p>
+                        </div>
+                    </div>
+                    
+                    <h2 class="text-2xl font-bold text-slate-800 mb-4">Actionable Steps & Responsibilities</h2>
+                    <div id="accordion-container" class="space-y-3">
+                        ${phase.steps.map((step, index) => `
+                            <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+                                <button class="accordion-header w-full flex justify-between items-center p-4 text-left">
+                                    <span class="font-semibold text-slate-700">${index + 1}. ${step.title}</span>
+                                    <svg class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </button>
+                                <div class="accordion-content">
+                                    <div class="p-4 border-t border-slate-200">
+                                        <ul class="space-y-3">
+                                            ${step.tasks.map(task => {
+                                                const completedPercentage = getCompletionStatus()[task.id];
+                                                const isCompleted = completedPercentage === 100;
+                                                return `
+                                                <li class="task-item p-3 rounded-md bg-slate-50 border-slate-200 ${isCompleted ? 'completed' : ''}" data-task-id="${task.id}" data-assignee="${task.assignee}">
+                                                    <div class="task-item-header">
+                                                        <p class="text-slate-800 task-text-content">${task.text}</p>
+                                                        <div class="flex items-center">
+                                                            <input type="number" min="0" max="100" value="${completedPercentage}" class="task-completion-input focus:ring-blue-500 focus:border-blue-500" data-task-id="${task.id}" onchange="updateTaskCompletion(event)">
+                                                            <span class="ml-1 text-sm text-slate-600">%</span>
+                                                            <button class="ml-2 p-1 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 task-expand-btn" data-task-id="${task.id}" data-task-text="${task.text}" data-task-completion="${completedPercentage}">
+                                                                ✨
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <span class="mt-2 inline-block text-xs font-semibold px-2 py-1 rounded-full bg-slate-200 text-slate-600">${task.assignee}</span>
+                                                    <div class="task-expansion-content text-sm text-slate-600 border-t border-slate-200 pt-2"></div>
+                                                </li>
+                                                `;
+                                            }).join('')}
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            contentArea.innerHTML = phaseHTML;
+            addAccordionListeners();
+            addListenersToTasks();
+        }
+
+        function renderMemberView(selectedMemberTag) {
+            const memberName = projectData.team.find(m => m.tag === selectedMemberTag)?.name || selectedMemberTag;
+            let memberHTML = `
+                <div id="member-view" class="page-section">
+                    <h1 class="text-3xl font-bold text-slate-900 mb-2">${memberName}'s Work Plan</h1>
+                    <p class="text-lg text-slate-600 mb-6">Explore all tasks assigned to <span class="font-semibold text-blue-600">${memberName}</span> across all project phases.</p>
+                    <div id="member-tasks-accordion" class="space-y-6">
+            `;
+
+            projectData.phases.forEach(phase => {
+                let memberTasksInPhase = [];
+                phase.steps.forEach(step => {
+                    step.tasks.forEach(task => {
+                        if (task.assignee === selectedMemberTag || task.assignee === 'All') {
+                            memberTasksInPhase.push({ ...task, phaseTitle: phase.title, stepTitle: step.title });
+                        }
+                    });
+                });
+
+                if (memberTasksInPhase.length > 0) {
+                    const phaseProgress = calculatePhaseProgress(phase.id);
+                    memberHTML += `
+                        <div class="bg-white rounded-lg border border-slate-200 shadow-sm">
+                            <button class="accordion-header w-full flex justify-between items-center p-4 text-left">
+                                <span class="font-semibold text-slate-700">${phase.title} - <span class="text-sm text-slate-500">${phase.duration}</span></span>
+                                <span class="text-sm font-semibold text-blue-600">${phaseProgress.toFixed(1)}% Completed in Phase</span>
+                                <svg class="w-5 h-5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div class="accordion-content">
+                                <div class="p-4 border-t border-slate-200">
+                                    <ul class="space-y-3">
+                                        ${memberTasksInPhase.map(task => {
+                                            const completedPercentage = getCompletionStatus()[task.id];
+                                            const isCompleted = completedPercentage === 100;
+                                            return `
+                                            <li class="task-item p-3 rounded-md bg-slate-50 border-slate-200 ${isCompleted ? 'completed' : ''}" data-task-id="${task.id}" data-assignee="${task.assignee}">
+                                                <div class="task-item-header">
+                                                    <p class="font-medium text-slate-700 task-text-content flex-1">${task.stepTitle}: ${task.text}</p>
+                                                    <div class="flex items-center">
+                                                        <input type="number" min="0" max="100" value="${completedPercentage}" class="task-completion-input focus:ring-blue-500 focus:border-blue-500" data-task-id="${task.id}" onchange="updateTaskCompletion(event)">
+                                                        <span class="ml-1 text-sm text-slate-600">%</span>
+                                                        <button class="ml-2 p-1 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 task-expand-btn" data-task-id="${task.id}" data-task-text="${task.text}" data-task-completion="${completedPercentage}">
+                                                            ✨
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <span class="mt-2 inline-block text-xs font-semibold px-2 py-1 rounded-full bg-slate-200 text-slate-600">${task.assignee}</span>
+                                                <div class="task-expansion-content text-sm text-slate-600 border-t border-slate-200 pt-2"></div>
+                                            </li>
+                                            `;
+                                        }).join('')}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            memberHTML += `</div></div>`;
+            contentArea.innerHTML = memberHTML;
+            addAccordionListeners();
+            addListenersToTasks();
+        }
+
+        let overallProgressChartInstance = null; // Store chart instance
+
+        function createProgressChart(progressValue) {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            if (overallProgressChartInstance) {
+                overallProgressChartInstance.destroy(); // Destroy previous instance
+            }
+            overallProgressChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Completed', 'Remaining'],
+                    datasets: [{
+                        label: 'Project Progress',
+                        data: [progressValue, 100 - progressValue],
+                        backgroundColor: ['#3b82f6', '#cbd5e1'], // Blue for completed, gray for remaining
+                        borderColor: '#f8fafc',
+                        borderWidth: 4,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        title: {
+                            display: false,
+                        },
+                        tooltip: { // Enable tooltip to show exact percentage
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed) {
+                                        label += context.parsed.toFixed(1) + '%';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+        }
+        
+        function renderGeminiAssistant() {
+            const teamMembers = projectData.team;
+            const isTeamLeader = currentAIChatUser === 'Pranava';
+
+            const assistantHTML = `
+                <div id="ai-assistant" class="page-section">
+                    <h1 class="text-3xl font-bold text-slate-900 mb-2">Gemini Assistant ✨</h1>
+                    <p class="text-lg text-slate-600 mb-6">Ask me anything about project planning, space weather, or the hackathon!</p>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200 mb-6">
+                        <div class="mb-4">
+                            <h3 class="font-semibold text-sm mb-2 text-slate-700">Talk as:</h3>
+                            <select id="chat-user-selector" class="w-full p-2 text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                ${teamMembers.map(member => `<option value="${member.tag}" ${member.tag === currentAIChatUser ? 'selected' : ''}>${member.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <textarea id="ai-input" class="w-full p-3 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mb-4 h-32 resize-y" placeholder="Type your question here..."></textarea>
+                        <button id="ai-submit" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">Ask Gemini</button>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                        <h3 class="font-bold text-lg mb-4">Conversation History for <span id="current-chat-user-name" class="text-blue-600">${projectData.team.find(m => m.tag === currentAIChatUser)?.name}</span>:</h3>
+                        <div id="ai-response-history" class="text-slate-700 min-h-[200px] max-h-[400px] overflow-y-auto bg-slate-50 p-3 rounded-md border border-slate-200 space-y-4">
+                            <!-- Chat messages will be appended here -->
+                        </div>
+                        <div id="ai-loading-indicator" class="text-blue-600 text-center py-2 hidden">
+                            Thinking... <svg class="inline-block animate-spin h-5 w-5 ml-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        </div>
+                    </div>
+
+                    ${isTeamLeader ? `
+                    <div class="mt-8 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                        <h3 class="font-bold text-lg mb-4">View Team Members' Chat Histories (Team Leader Only)</h3>
+                        <div class="mb-4">
+                            <h3 class="font-semibold text-sm mb-2 text-slate-700">Select Member to View:</h3>
+                            <select id="view-member-chat-selector" class="w-full p-2 text-sm border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Select a member</option>
+                                ${teamMembers.filter(m => m.tag !== 'Pranava').map(member => `<option value="${member.tag}">${member.name}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div id="view-member-chat-history" class="text-slate-700 min-h-[100px] max-h-[300px] overflow-y-auto bg-slate-50 p-3 rounded-md border border-slate-200 space-y-4">
+                            <span class="text-slate-500">Select a member above to view their chat history.</span>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            contentArea.innerHTML = assistantHTML;
+            document.getElementById('ai-submit').addEventListener('click', askGemini);
+            document.getElementById('chat-user-selector').addEventListener('change', (e) => {
+                currentAIChatUser = e.target.value;
+                renderGeminiAssistant(); // Re-render to load new user's chat and update view
+            });
+
+            // Initialize chat history display for the current user
+            displayChatHistory(currentAIChatUser, 'ai-response-history');
+
+            if (isTeamLeader) {
+                document.getElementById('view-member-chat-selector').addEventListener('change', (e) => {
+                    const selectedUser = e.target.value;
+                    if (selectedUser) {
+                        displayChatHistory(selectedUser, 'view-member-chat-history');
+                    } else {
+                        document.getElementById('view-member-chat-history').innerHTML = '<span class="text-slate-500">Select a member above to view their chat history.</span>';
+                    }
+                });
+            }
+        }
+
+        function displayChatHistory(userTag, targetElementId) {
+            const history = getChatHistory(userTag);
+            const historyDiv = document.getElementById(targetElementId);
+            historyDiv.innerHTML = ''; // Clear previous content
+
+            if (history.length === 0) {
+                historyDiv.innerHTML = '<span class="text-slate-500">No conversation history yet.</span>';
+                historyDiv.classList.add('text-center', 'justify-center');
+                return;
+            }
+            historyDiv.classList.remove('text-center', 'justify-center');
+
+            history.forEach(entry => {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('p-2', 'rounded-md', 'break-words');
+                if (entry.role === 'user') {
+                    messageDiv.classList.add('bg-blue-100', 'text-blue-800', 'self-end', 'text-right');
+                    messageDiv.innerHTML = `<strong>You:</strong> ${entry.parts[0].text}`;
+                } else {
+                    messageDiv.classList.add('bg-slate-100', 'text-slate-700', 'self-start', 'text-left');
+                    messageDiv.innerHTML = `<strong>Gemini:</strong> ${entry.parts[0].text}`;
+                }
+                historyDiv.appendChild(messageDiv);
+            });
+            historyDiv.scrollTop = historyDiv.scrollHeight; // Scroll to bottom
+        }
+
+
+        async function askGemini() {
+            const promptInput = document.getElementById('ai-input');
+            const prompt = promptInput.value;
+            const responseHistoryDiv = document.getElementById('ai-response-history');
+            const loadingIndicator = document.getElementById('ai-loading-indicator');
+
+            if (!prompt.trim()) {
+                responseHistoryDiv.innerHTML += `<div class="p-2 rounded-md bg-red-100 text-red-800">Please enter a question.</div>`;
+                responseHistoryDiv.scrollTop = responseHistoryDiv.scrollHeight;
+                return;
+            }
+
+            // Add user prompt to history and display
+            let currentChatHistory = getChatHistory(currentAIChatUser);
+            currentChatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            setChatHistory(currentAIChatUser, currentChatHistory);
+            displayChatHistory(currentAIChatUser, 'ai-response-history'); // Re-display with new message
+
+            promptInput.value = ''; // Clear input
+
+            loadingIndicator.classList.remove('hidden'); // Show loading indicator
+
+            const payload = { contents: currentChatHistory };
+            const apiKey = "AIzaSyA3vrfAGTkSUQN6shvxzAiJXBgpv4L7W5Y"; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                loadingIndicator.classList.add('hidden'); // Hide loading indicator
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+                    
+                    currentChatHistory.push({ role: "model", parts: [{ text: formattedText }] });
+                    setChatHistory(currentAIChatUser, currentChatHistory);
+                    displayChatHistory(currentAIChatUser, 'ai-response-history'); // Re-display with new message
+                } else {
+                    responseHistoryDiv.innerHTML += `<div class="p-2 rounded-md bg-red-100 text-red-800">Sorry, I could not get a response. Please try again.</div>`;
+                    responseHistoryDiv.scrollTop = responseHistoryDiv.scrollHeight;
+                }
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                loadingIndicator.classList.add('hidden'); // Hide loading indicator
+                responseHistoryDiv.innerHTML += `<div class="p-2 rounded-md bg-red-100 text-red-800">An error occurred. Please check console for details.</div>`;
+                responseHistoryDiv.scrollTop = responseHistoryDiv.scrollHeight;
+            }
+        }
+
+        async function expandTaskWithGemini(event) {
+            event.stopPropagation(); 
+            const button = event.currentTarget;
+            const taskItem = button.closest('.task-item');
+            const taskId = button.dataset.taskId;
+            const taskText = button.dataset.taskText; // Get text directly from button dataset
+            const taskCompletion = button.dataset.taskCompletion; // Get completion directly from button dataset
+            const expansionDiv = taskItem.querySelector('.task-expansion-content');
+            const isCurrentlyOpen = expansionDiv.classList.contains('open');
+
+            if (isCurrentlyOpen) {
+                expansionDiv.classList.remove('open');
+                expansionDiv.style.maxHeight = '0'; 
+                expansionDiv.innerHTML = ''; 
+            } else {
+                expansionDiv.classList.add('open');
+                expansionDiv.style.maxHeight = '500px'; 
+                expansionDiv.innerHTML = '<span class="text-blue-600">Generating details... <svg class="inline-block animate-spin h-4 w-4 ml-1 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>';
+                
+                let prompt = `As a project assistant, elaborate on this task from a hackathon project plan, providing more detail, potential sub-steps, considerations, and advice on how to proceed. The task is "${taskText}". It is currently ${taskCompletion}% complete. Focus on what needs to be done for the remaining percentage. Format the response clearly with bullet points, new paragraphs, and bolding for key terms. Each point should be concise and on a new line.`;
+                
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const text = result.candidates[0].content.parts[0].text;
+                        let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Bold
+                        formattedText = formattedText.replace(/^- (.*)/gm, '<li>$1</li>'); // List items
+                        formattedText = formattedText.replace(/\n\n/g, '<p></p>'); // Paragraphs for double newlines
+                        formattedText = formattedText.replace(/\n/g, '<br>'); // Single newlines for line breaks
+
+                        if (formattedText.includes('<li>') && !formattedText.startsWith('<ul>')) {
+                            formattedText = `<ul>${formattedText}</ul>`;
+                        }
+
+                        expansionDiv.innerHTML = formattedText;
+                        expansionDiv.style.maxHeight = expansionDiv.scrollHeight + 'px';
+
+                    } else {
+                        expansionDiv.innerHTML = '<span class="text-red-500">Could not elaborate on this task.</span>';
+                    }
+                } catch (error) {
+                    console.error('Error calling Gemini API for task expansion:', error);
+                    expansionDiv.innerHTML = '<span class="text-red-500">Error expanding task.</span>';
+                }
+            }
+        }
+
+
+        function updateTaskCompletion(event) {
+            const input = event.currentTarget;
+            const taskId = input.dataset.taskId;
+            let percentage = parseInt(input.value);
+
+            if (isNaN(percentage) || percentage < 0) percentage = 0;
+            if (percentage > 100) percentage = 100;
+            input.value = percentage; // Ensure input reflects clamped value
+
+            setCompletionStatus(taskId, percentage);
+
+            const taskItem = input.closest('.task-item');
+            if (percentage === 100) {
+                taskItem.classList.add('completed');
+            } else {
+                taskItem.classList.remove('completed');
+            }
+
+            // Find the task in projectData and update its 'completed' property
+            projectData.phases.forEach(phase => {
+                phase.steps.forEach(step => {
+                    step.tasks.forEach(task => {
+                        if (task.id === taskId) {
+                            task.completed = percentage;
+                        }
+                    });
+                });
+            });
+
+            // Re-render relevant parts to update progress charts
+            const currentHash = window.location.hash || '#overview';
+            const currentMemberFilter = memberFilter.value;
+
+            if (currentMemberFilter !== 'All' && currentHash !== '#gemini-assistant') {
+                renderMemberView(currentMemberFilter);
+            } else {
+                if (currentHash === '#overview') {
+                    renderOverview();
+                } else if (currentHash.startsWith('#phase')) {
+                    const phaseId = currentHash.substring(1);
+                    const phaseData = projectData.phases.find(p => p.id === phaseId);
+                    if (phaseData) {
+                        renderPhase(phaseData);
+                    }
+                }
+            }
+        }
+        
+        function handleNavigation() {
+            const hash = window.location.hash || '#overview';
+            
+            document.querySelectorAll('.sidebar-item').forEach(item => {
+                item.classList.remove('active');
+                // Ensure correct hash matching for member views as well
+                if (item.getAttribute('href') === hash || hash.startsWith('#member-view-') && item.getAttribute('href').includes('member-filter')) {
+                    item.classList.add('active');
+                }
+            });
+
+            const currentMemberFilter = memberFilter.value;
+            
+            if (hash === '#gemini-assistant') {
+                renderGeminiAssistant();
+                // When on AI assistant page, ensure "All Members" is selected in the filter dropdown visually
+                memberFilter.value = 'All'; 
+            } else if (hash.startsWith('#member-view-')) {
+                 const memberTagFromHash = hash.substring('#member-view-'.length);
+                 memberFilter.value = memberTagFromHash; // Sync dropdown with hash
+                 renderMemberView(memberTagFromHash);
+            }
+            else { // General overview or phase view
+                const phaseId = hash.substring(1);
+                const phaseData = projectData.phases.find(p => p.id === phaseId);
+                if (phaseData) {
+                    renderPhase(phaseData);
+                } else { // Default to overview if hash is unrecognized or empty
+                    renderOverview(); 
+                }
+                // When on overview or phase page, ensure "All Members" is selected in the filter dropdown visually
+                memberFilter.value = 'All'; 
+            }
+            addAccordionListeners();
+            addListenersToTasks(); 
+        }
+
+        function addAccordionListeners() {
+            document.querySelectorAll('.accordion-header').forEach(button => {
+                button.removeEventListener('click', toggleAccordion); // Prevent duplicate listeners
+                button.addEventListener('click', toggleAccordion);
+            });
+        }
+
+        function toggleAccordion(event) {
+            const button = event.currentTarget;
+            const content = button.nextElementSibling;
+            const icon = button.querySelector('svg');
+
+            if (content.style.maxHeight && content.style.maxHeight !== '0px') { // If currently open, close it
+                content.style.maxHeight = '0px'; // Explicitly set to 0 to trigger transition
+                icon.classList.remove('rotate-180');
+            } else { // If currently closed, open it
+                // Set max-height to scrollHeight to allow smooth transition
+                // A fixed max-height is usually better for smooth transitions
+                content.style.maxHeight = content.scrollHeight + "px"; 
+                icon.classList.add('rotate-180');
+            }
+        }
+
+        function addListenersToTasks() {
+            // Event listener for toggling completion on task text click
+            document.querySelectorAll('.task-item .task-text-content').forEach(element => {
+                element.removeEventListener('click', toggleTaskCompletionByText); 
+                element.addEventListener('click', toggleTaskCompletionByText);
+            });
+
+            // Event listener for task completion input change
+            document.querySelectorAll('.task-item .task-completion-input').forEach(input => {
+                input.removeEventListener('change', updateTaskCompletion);
+                input.addEventListener('change', updateTaskCompletion);
+            });
+
+            // Event listener for expand button click
+            document.querySelectorAll('.task-item .task-expand-btn').forEach(button => {
+                button.removeEventListener('click', expandTaskWithGemini); 
+                button.addEventListener('click', expandTaskWithGemini);
+            });
+        }
+
+        function toggleTaskCompletionByText(event) {
+            // This handler is only for clicking the text to toggle between 0% and 100%
+            const taskItem = event.currentTarget.closest('.task-item');
+            const taskId = taskItem.dataset.taskId;
+            const currentCompletion = getCompletionStatus()[taskId];
+            const newCompletion = currentCompletion === 100 ? 0 : 100;
+            
+            // Find the input and update its value, which will trigger updateTaskCompletion
+            const inputElement = taskItem.querySelector('.task-completion-input');
+            if (inputElement) {
+                inputElement.value = newCompletion;
+                updateTaskCompletion({ currentTarget: inputElement }); // Manually trigger update
+            }
+        }
+        
+        // Initialization function to run after DOM is fully loaded
+        function init() {
+            contentArea = document.getElementById('content-area');
+            navMenu = document.getElementById('nav-menu');
+            memberFilter = document.getElementById('member-filter');
+            sidebar = document.getElementById('sidebar');
+            menuToggle = document.getElementById('menu-toggle');
+
+            // Attach event listeners after elements are defined
+            window.addEventListener('hashchange', handleNavigation);
+            handleNavigation(); // Call once on initial load
+            memberFilter.addEventListener('change', (event) => {
+                const selectedMember = event.target.value;
+                if (selectedMember === 'All') {
+                    window.location.hash = '#overview'; // Go back to overview if 'All' is selected
+                } else {
+                    // Navigate to a hash specific to the member view
+                    window.location.hash = `#member-view-${selectedMember}`; 
+                }
+            });
+
+            // Mobile menu toggle
+            menuToggle.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent document click from closing it immediately
+                sidebar.classList.toggle('-translate-x-full');
+            });
+            document.addEventListener('click', (e) => {
+                if (!sidebar.contains(e.target) && !menuToggle.contains(e.target) && !sidebar.classList.contains('-translate-x-full')) {
+                    sidebar.classList.add('-translate-x-full');
+                }
+            });
+        }
+
+        // Run init function when the DOM is fully loaded
+        window.addEventListener('DOMContentLoaded', init);
+
+    </script>
+</body>
+</html>
