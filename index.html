@@ -932,7 +932,7 @@
             event.stopPropagation(); 
             const button = event.currentTarget;
             const taskText = button.dataset.taskText;
-            const taskCompletion = button.dataset.taskCompletion;
+            const taskCompletion = Number(button.dataset.taskCompletion) || 0;
 
             const modalOverlay = document.getElementById('task-modal');
             const modalTitle = document.getElementById('modal-title');
